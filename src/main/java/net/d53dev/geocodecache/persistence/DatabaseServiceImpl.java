@@ -7,11 +7,10 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.pgclient.PgPool;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.Tuple;
-import lombok.extern.log4j.Log4j2;
+import lombok.extern.slf4j.Slf4j;
 
-import java.util.NoSuchElementException;
 
-@Log4j2
+@Slf4j
 public class DatabaseServiceImpl implements DatabaseService {
 	private final PgPool pool;
 
@@ -38,24 +37,46 @@ public class DatabaseServiceImpl implements DatabaseService {
 	}
 
 	@Override
-	public DatabaseService getJson(String key, Handler<AsyncResult<JsonObject>> resultHandler) {
+	public DatabaseService getJson(String id, Handler<AsyncResult<JsonObject>> resultHandler) {
 		pool.getConnection(ar -> {
 			if (ar.succeeded()) {
 				var connection = ar.result();
-				var sql = "SELECT full_json FROM geolocation WHERE id=$1";
-				log.info("Running query: {}", sql);
-				connection.preparedQuery(sql, Tuple.of(key), result -> {
+				var sql = "SELECT full_json FROM geocoding WHERE id=$1";
+				connection.preparedQuery(sql, Tuple.of(id), dbResult -> {
+					if (dbResult.failed()) {
+						resultHandler.handle(Future.failedFuture(dbResult.cause()));
+					} else {
+						var rows = dbResult.result();
+						if (rows.rowCount() < 1) {
+							resultHandler.handle(Future.succeededFuture());
+						} else {
+							for (Row row : rows) {
+								resultHandler.handle(Future.succeededFuture(row.get(JsonObject.class, 0)));
+								break;
+							}
+						}
+					}
+					connection.close();
+				});
+			} else {
+				log.error("Could not acquire connection", ar.cause());
+				resultHandler.handle(Future.failedFuture(ar.cause()));
+			}
+		});
+		return this;
+	}
+
+	@Override
+	public DatabaseService writeJson(String id, JsonObject json, Handler<AsyncResult<Void>> resultHandler) {
+		pool.getConnection(ar -> {
+			if (ar.succeeded()) {
+				var connection = ar.result();
+				var sql = "INSERT INTO geocoding (id, full_json) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET full_json = EXCLUDED.full_json";
+				connection.preparedQuery(sql, Tuple.of(id, json), result -> {
 					if (result.failed()) {
 						resultHandler.handle(Future.failedFuture(result.cause()));
 					} else {
-						var rows = result.result();
-						if (rows.rowCount() < 1) {
-							resultHandler.handle(Future.failedFuture(new NoSuchElementException()));
-						}
-						for (Row row : rows) {
-							resultHandler.handle(Future.succeededFuture(row.get(JsonObject.class, 0)));
-							break;
-						}
+						resultHandler.handle(Future.succeededFuture());
 					}
 					connection.close();
 				});

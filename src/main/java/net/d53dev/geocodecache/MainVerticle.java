@@ -4,16 +4,17 @@ import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import lombok.extern.log4j.Log4j2;
+import lombok.extern.slf4j.Slf4j;
 import net.d53dev.geocodecache.config.DatabaseConfig;
+import net.d53dev.geocodecache.geoclient.GoogleGeolocationClient;
+import net.d53dev.geocodecache.http.HttpServerVerticle;
 import net.d53dev.geocodecache.persistence.DatabaseVerticle;
 
-@Log4j2
+@Slf4j
 public class MainVerticle extends AbstractVerticle {
 
 	private static ConfigRetrieverOptions getConfigRetrieverOptions() {
@@ -26,6 +27,9 @@ public class MainVerticle extends AbstractVerticle {
 		for (String key : DatabaseConfig.values) {
 			envVarKeys.add(key);
 		}
+		envVarKeys.add(GoogleGeolocationClient.API_KEY_KEY);
+		envVarKeys.add(HttpServerVerticle.STATS_PRINT_INTERVAL);
+
 		JsonObject envVarConfiguration = new JsonObject().put("keys", envVarKeys);
 		ConfigStoreOptions environment = new ConfigStoreOptions()
 				.setType("env")
@@ -63,11 +67,10 @@ public class MainVerticle extends AbstractVerticle {
 			dbVerticleDeployment.future().compose(id -> {
 				log.info("Starting http verticle");
 				Promise<String> httpVerticleDeployment = Promise.promise();
-				Promise<String> analyticsVerticleDeployment = Promise.promise();
-				vertx.deployVerticle("net.d53dev.geocache.http.HttpServerVerticle",
+				vertx.deployVerticle("net.d53dev.geocodecache.http.HttpServerVerticle",
 						new DeploymentOptions().setInstances(1).setConfig(config), httpVerticleDeployment);
 
-				return CompositeFuture.all(httpVerticleDeployment.future(), analyticsVerticleDeployment.future());
+				return httpVerticleDeployment.future();
 
 			}).setHandler(ar -> {
 				if (ar.succeeded()) {

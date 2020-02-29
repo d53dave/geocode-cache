@@ -8,9 +8,10 @@ import io.vertx.pgclient.SslMode;
 import io.vertx.serviceproxy.ServiceBinder;
 import io.vertx.sqlclient.PoolOptions;
 import lombok.extern.log4j.Log4j2;
+import lombok.extern.slf4j.Slf4j;
 import net.d53dev.geocodecache.config.DatabaseConfig;
 
-@Log4j2
+@Slf4j
 public class DatabaseVerticle extends AbstractVerticle {
 
 	public static final String ADDRESS = "geocode-storage";
@@ -18,7 +19,7 @@ public class DatabaseVerticle extends AbstractVerticle {
 	@Override
 	public void start(Promise<Void> promise) {
 		var conf = config();
-		log.debug("Connecting to database with conf: {}", conf);
+		log.info("Connecting to database with conf: {}", conf);
 
 		var connectOptions = new PgConnectOptions();
 		var poolOptions = new PoolOptions();

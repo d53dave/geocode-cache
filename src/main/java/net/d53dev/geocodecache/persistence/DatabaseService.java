@@ -12,6 +12,7 @@ import io.vertx.pgclient.PgPool;
 
 @ProxyGen
 @VertxGen
+@SuppressWarnings("UnusedReturnValue")
 public  interface DatabaseService {
 	@GenIgnore
 	static DatabaseService create(PgPool pool, Handler<AsyncResult<DatabaseService>> readyHandler) {
@@ -24,5 +25,8 @@ public  interface DatabaseService {
 	}
 
 	@Fluent
-	DatabaseService getJson(String key, Handler<AsyncResult<JsonObject>> resultHandler);
+	DatabaseService getJson(String id, Handler<AsyncResult<JsonObject>> resultHandler);
+
+	@Fluent
+	DatabaseService writeJson(String id, JsonObject json, Handler<AsyncResult<Void>> resultHandler);
 }
